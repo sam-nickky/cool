@@ -1,0 +1,35 @@
+---
+- name: Clean system storage
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Clean apt cache (Debian/Ubuntu)
+      ansible.builtin.apt:
+        autoclean: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Remove unused packages (Debian/Ubuntu)
+      ansible.builtin.apt:
+        autoremove: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Clean yum cache (RHEL/CentOS)
+      ansible.builtin.shell: yum clean all
+      when: ansible_os_family == "RedHat"
+
+    - name: Remove old journal logs
+      ansible.builtin.shell: journalctl --vacuum-time=7d
+
+    - name: Remove temporary files
+      ansible.builtin.file:
+        path: /tmp
+        state: absent
+      ignore_errors: yes
+
+    - name: Recreate /tmp
+      ansible.builtin.file:
+        path: /tmp
+        state: directory
+        mode: '1777'
+

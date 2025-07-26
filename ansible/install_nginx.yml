@@ -1,0 +1,45 @@
+---
+- name: Install and configure NGINX
+  hosts: aws_targets
+  become: yes
+  vars:
+    web_root: /var/www/html
+    index_content: |
+      <html>
+      <head><title>Welcome from Ansible</title></head>
+      <body>
+        <h1>Hello! Nginx is running on {{ inventory_hostname }}</h1>
+      </body>
+      </html>
+
+  tasks:
+    - name: update packages
+      ansible.builtin.apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Nginx
+      ansible.builtin.package:
+        name: nginx
+        state: present
+
+    - name: nginx running anf enabled
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+    - name: Deploy index
+      ansible.builtin.copy:
+        dest: "{{ web_root }}/index.html"
+        content: "{{ index_content }}"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: open HTTP port
+      ansible.posix.firewalld:
+        port: 80/tcp
+        permanent: true
+        state: enabled
+        immediate: yes
+      when: ansible_facts['os_family'] == 'RedHat'

@@ -1,0 +1,69 @@
+---
+- name: Install and configure Nginx web server
+  hosts: aws_targets   # or 'all'
+  become: yes
+
+  vars:
+    web_root: /var/www/html
+    index_content: |
+      <html>
+      <head><title>Welcome from Ansible</title></head>
+      <body>
+        <h1>Hello! Nginx is running on {{ inventory_hostname }}</h1>
+      </body>
+      </html>
+
+  tasks:
+    - name: Stop Apache if it exists (Debian/Ubuntu)
+      ansible.builtin.service:
+        name: apache2
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Stop httpd if it exists (RHEL/CentOS)
+      ansible.builtin.service:
+        name: httpd
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Nginx
+      ansible.builtin.package:
+        name: nginx
+        state: present
+
+    - name: Ensure Nginx is running and enabled
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Deploy custom index page
+      ansible.builtin.copy:
+        dest: "{{ web_root }}/index.html"
+        content: "{{ index_content }}"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Open HTTP port on UFW (Debian/Ubuntu)
+      ansible.builtin.ufw:
+        rule: allow
+        port: 80
+        proto: tcp
+      when: ansible_facts['os_family'] == "Debian"
+
+    - name: Open HTTP port on firewalld (RHEL/CentOS)
+      ansible.posix.firewalld:
+        port: 80/tcp
+        permanent: true
+        state: enabled
+        immediate: yes
+      when: ansible_facts['os_family'] == "RedHat"
+
